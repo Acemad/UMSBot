@@ -10,8 +10,8 @@ import util.Pair;
 import java.util.*;
 
 /**
- * This class implements an adaptive move generation approach that relies on asymmetric abstraction to control
- * different sets of units using different sets of actions. Inspired by CmabAsymmetricGenerator by @rubens
+ * This class implements an adaptive move generation approach inspired by the CmabAsymmetricGenerator by @rubens
+ * Not final, WIP.
  * @author Acemad
  */
 public class AdaptiveActionGenerator {
@@ -37,7 +37,7 @@ public class AdaptiveActionGenerator {
         rangedLimit = -1,
         heavyLimit = 0;
 
-    public static final float epsilonMovement = 1f; // Exploration parameter for movements.
+    public static final float epsilonMovement = 0.05f; // Exploration parameter for movements.
 
     private GameState gameState; // The current game state.
     private PhysicalGameState physicalGameState;
@@ -401,8 +401,8 @@ public class AdaptiveActionGenerator {
                 if (assaultUnits.contains(unit)) {
                     filteredActions.addAll(attackActions);
                     if (!moveActions.isEmpty())
-//                        filteredActions.addAll(getMoveActionsToClosestOpponentUnits(unit, 2));
-                    filteredActions.addAll(restrictMovementAroundBase(unit, moveActions, 6));
+                        filteredActions.addAll(getMoveActionsToClosestOpponentUnits(unit, 2));
+//                    filteredActions.addAll(restrictMovementAroundBase(unit, moveActions, 6));
                 // *****************
 
                 /*if (!attackActions.isEmpty()) {
@@ -456,9 +456,9 @@ public class AdaptiveActionGenerator {
                         filteredActions.addAll(getMoveActionsToClosestOpponentUnits(unit, 2));
                     else
 //                        if (assaultUnits.size() + workerUnits.size() - harvestersLimit < 10)
-                        filteredActions.addAll(restrictMovementAroundBase(unit, moveActions, (physicalGameState.getWidth()/2) - 2));
+//                        filteredActions.addAll(restrictMovementAroundBase(unit, moveActions, (physicalGameState.getWidth()/2) - 2));
 //                        else filteredActions.addAll(getMoveActionsToClosestOpponentUnits(unit, 2));
-//                        filteredActions.add(moveActions.remove(random.nextInt(moveActions.size())));
+                        filteredActions.add(moveActions.remove(random.nextInt(moveActions.size())));
                 break;
             case "Barracks":
                 // Production is possible, either train a Light, Ranged, or Heavy unit, within the limits.
