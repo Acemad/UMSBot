@@ -1,5 +1,4 @@
-import ai.abstraction.pathfinding.AStarPathFinding;
-import ai.abstraction.pathfinding.PathFinding;
+import ai.abstraction.pathfinding.*;
 import rts.GameState;
 import rts.PhysicalGameState;
 import rts.ResourceUsage;
@@ -16,46 +15,54 @@ import java.util.*;
  */
 public class AdaptiveActionGenerator {
 
-    // For random number generation.
-    private Random random = new Random();
+    // Random movement mode.
+    public static final int FREE_ROAM = 0; // TODO
+    // Defense Modes
+    public static final int DEFEND_INSIDE = 1, DEFEND_OUTSIDE = 2; // TODO
+    // Attack Modes
+    public static final int ATTACK_CLOSEST = 1, ATTACK_WEAKEST = 2, ATTACK_STRONGEST = 3, ATTACK_PRIORITY = 4; // TODO
+    // Harvest Modes
+    public static final int AUTO_HARVEST = 1; // TODO
+
+    // Building / Training Modes
+    public static final int BUILD_TRAIN_RANDOM_LOCATION = 0, BUILD_AWAY_FROM_BASE = 1, TRAIN_OUTER_SIDE = 2; // TODO
+
 
     // The limits imposed on the number of possible units, of each type.
     // 0 : do not produce, -1 : produce infinitely, n : produce n at most.
-    public static final int
-            maxBases = 1,
-            maxBarracks = 1,//2,
+    private static int maxBases = 1, maxBarracks = 1 ; //2
+    private static int maxHarvesters = 2;
+    private static int maxAttackWorkers = 4, maxAttackLights = 0, maxAttackRanged = -1,maxAttackHeavies = 0;
+    private static int maxDefenseWorkers = 0, maxDefenseLights = 0, maxDefenseRanged = 1, maxDefenseHeavies = 0;
 
-            maxAttackWorkers = 4,
-            maxAttackLights = 0,//-1,
-            maxAttackRanged = -1,
-            maxAttackHeavies = 0,
+    // Front Line tactics, -1 maxFontLineUnits means take all units in the front-line
+    private static int maxFrontLineUnits = 3, frontLineTacticalDistance = 1, frontLineWaitDuration = 3;
+    private static int backWaitDuration = 10;
 
-            maxHarvesters = 2,
+    // Defense
+    private static int horizontalDistanceFromBase = 0, verticalDistanceFromBase = 0, radiusFromBase = 4,
+            maxClosestOpponentUnitsOnDefense = 2;
 
-            maxDefenseWorkers = 0,
-            maxDefenseLights = 0,
-            maxDefenseRanged = 1,
-            maxDefenseHeavies = 0;
+    // Attack
+    private static int maxClosestOpponentUnitsOnAttack = 2;
+
+    // Production : Building / Training
+    private static int maxProduceActionsChosen = 1, buildingMode = BUILD_TRAIN_RANDOM_LOCATION,
+            trainingMode = BUILD_TRAIN_RANDOM_LOCATION;
 
     // Exploration parameter for movements.
-    public static final float epsilonMovement = 0.05f;
+    private static float epsilonMovement = 0.05f;
+
+    // ***************************************************************
+
+    // For random number generation.
+    private Random random = new Random();
 
     // The current count of each own unit type in this game state.
-    public int
-            nbBases = 0,
-            nbBarracks = 0,
-
-            nbAttackWorkers = 0,
-            nbAttackLights = 0,
-            nbAttackRanged = 0,
-            nbAttackHeavies = 0,
-
-            nbHarvesters = 0,
-
-            nbDefenseWorkers = 0,
-            nbDefenseLights = 0,
-            nbDefenseRanged = 0,
-            nbDefenseHeavies = 0;
+    private int nbBases = 0, nbBarracks = 0;
+    private int nbHarvesters = 0;
+    private int nbAttackWorkers = 0, nbAttackLights = 0, nbAttackRanged = 0, nbAttackHeavies = 0;
+    private int nbDefenseWorkers = 0, nbDefenseLights = 0, nbDefenseRanged = 0, nbDefenseHeavies = 0;
 
     // The current game state and resource usage.
     private GameState gameState;
@@ -66,27 +73,27 @@ public class AdaptiveActionGenerator {
     private long size = 1; // Size of the possible choice combination.
 
     // The path finding algorithm used to direct movement.
-    PathFinding pathFinder = new AStarPathFinding();
+    private PathFinding pathFinder = new AStarPathFinding(); /*new FloodFillPathFinding();*/ /*new BFSPathFinding();*/ /*new GreedyPathFinding();*/
 
     // Units decomposition based on opponent proximity, used for adaptive wait durations.
-    List<Unit> frontLineUnits = new ArrayList<>();
-    List<Unit> backUnits = new ArrayList<>();
+    private List<Unit> frontLineUnits = new ArrayList<>();
+    private List<Unit> backUnits = new ArrayList<>();
 
     // Decomposition of own units, based on UnitType
-    List<Unit> bases = new LinkedList<>();
-    List<Unit> barracks = new LinkedList<>();
-    List<Unit> workerUnits = new LinkedList<>();
-    List<Unit> lightUnits = new LinkedList<>();
-    List<Unit> rangedUnits = new LinkedList<>();
-    List<Unit> heavyUnits = new LinkedList<>();
-    List<Unit> harvestingWorkers = new LinkedList<>();
+    private List<Unit> bases = new LinkedList<>();
+    private List<Unit> barracks = new LinkedList<>();
+    private List<Unit> workerUnits = new LinkedList<>();
+    private List<Unit> lightUnits = new LinkedList<>();
+    private List<Unit> rangedUnits = new LinkedList<>();
+    private List<Unit> heavyUnits = new LinkedList<>();
+    private List<Unit> harvestingWorkers = new LinkedList<>();
 
     // Decomposition of own mobile units, based on tactical stance.
-    List<Unit> attackingUnits = new LinkedList<>();
-    List<Unit> defendingUnits = new LinkedList<>();
+    private List<Unit> attackingUnits = new LinkedList<>();
+    private List<Unit> defendingUnits = new LinkedList<>();
 
     // All the opponent's units.
-    List<Unit> opponentUnits = new LinkedList<>();
+    private List<Unit> opponentUnits = new LinkedList<>();
 
     /**
      * The main constructor, populates the choices list with all the possible actions, relying on the different
@@ -109,12 +116,16 @@ public class AdaptiveActionGenerator {
         countUnits();
 
         // Select front line units and back units.
-        selectFrontLineUnitsByOpponentRange(1, 3);
+        selectFrontLineUnitsByOwnRange(maxFrontLineUnits, frontLineTacticalDistance);
+//        selectFrontLineUnitsByOpponentRange(maxFrontLineUnits, frontLineTacticalDistance);
         selectBackUnits();
 
+//        if (playerID == 1)
+//            System.out.println("Front Lines : " + frontLineUnits.size());
+
         // Assign unit actions to each unit group.
-        generateLowLevelActionsFor(frontLineUnits, 3, true);
-        generateLowLevelActionsFor(backUnits, 10, true);
+        generateLowLevelActionsFor(frontLineUnits, frontLineWaitDuration, true);
+        generateLowLevelActionsFor(backUnits, backWaitDuration, true);
 
         if (choices.size() == 0) {
             System.err.println("Problematic game state:");
@@ -229,29 +240,25 @@ public class AdaptiveActionGenerator {
      * @param tacticalDistance
      * @param unitLimit
      */
-    private void selectFrontLineUnitsByOwnRange(int tacticalDistance, int unitLimit) {
-
-        frontLineUnits.clear();
+    private void selectFrontLineUnitsByOwnRange(int unitLimit, int tacticalDistance) {
 
         for (Unit unit : physicalGameState.getUnits()) {
 
             if (unit.getPlayer() == playerID && unit.getType().canMove) {
 
-                for (Unit possibleUnit : physicalGameState.getUnits()) {
-                    if (possibleUnit.getPlayer() == 1 - playerID &&
-                            possibleUnit.getType().canMove &&
-                            !frontLineUnits.contains(unit) &&
-                            (Math.abs(possibleUnit.getX() - unit.getX()) <= unit.getAttackRange() + tacticalDistance &&
-                                    Math.abs(possibleUnit.getY() - unit.getY()) <= unit.getAttackRange() + tacticalDistance))
+                for (Unit otherUnit : physicalGameState.getUnits()) {
+                    if (otherUnit.getPlayer() == 1 - playerID && otherUnit.getType().canMove &&
+                        (Math.abs(otherUnit.getX() - unit.getX()) <= unit.getAttackRange() + tacticalDistance &&
+                         Math.abs(otherUnit.getY() - unit.getY()) <= unit.getAttackRange() + tacticalDistance)) {
 
-                        frontLineUnits.add(unit);
-
-                    if (unitLimit > 0 && frontLineUnits.size() >= unitLimit)
+                        if (unitLimit < 0 || frontLineUnits.size() < unitLimit)
+                            frontLineUnits.add(unit);
                         break;
+                    }
                 }
             }
 
-            if (unitLimit > 0 && frontLineUnits.size() >= unitLimit)
+            if (unitLimit >= 0 && frontLineUnits.size() >= unitLimit)
                 break;
         }
     }
@@ -261,28 +268,26 @@ public class AdaptiveActionGenerator {
      * @param tacticalDistance
      * @param unitLimit
      */
-    private void selectFrontLineUnitsByOpponentRange(int tacticalDistance, int unitLimit) {
-
-        frontLineUnits.clear();
+    private void selectFrontLineUnitsByOpponentRange(int unitLimit, int tacticalDistance) {
 
         for (Unit unit : physicalGameState.getUnits()) {
+
             if (unit.getPlayer() == 1 - playerID && unit.getType().canMove) {
 
-                for (Unit possibleUnit : physicalGameState.getUnits()) {
-                    if (possibleUnit.getPlayer() == playerID &&
-                        possibleUnit.getType().canMove &&
-                        !frontLineUnits.contains(possibleUnit) &&
-                        (Math.abs(possibleUnit.getX() - unit.getX()) <= unit.getAttackRange() + tacticalDistance &&
-                         Math.abs(possibleUnit.getY() - unit.getY()) <= unit.getAttackRange() + tacticalDistance))
+                for (Unit otherUnit : physicalGameState.getUnits()) {
+                    if (!frontLineUnits.contains(otherUnit) &&
+                        otherUnit.getPlayer() == playerID && otherUnit.getType().canMove &&
+                        (Math.abs(otherUnit.getX() - unit.getX()) <= unit.getAttackRange() + tacticalDistance &&
+                         Math.abs(otherUnit.getY() - unit.getY()) <= unit.getAttackRange() + tacticalDistance))
 
-                        frontLineUnits.add(possibleUnit);
-
-                    if (unitLimit > 0 && frontLineUnits.size() >= unitLimit)
-                        break;
+                        if (unitLimit < 0 || frontLineUnits.size() < unitLimit)
+                            frontLineUnits.add(otherUnit);
+                        else
+                            break;
                 }
             }
 
-            if (unitLimit > 0 && frontLineUnits.size() >= unitLimit)
+            if (unitLimit >= 0 && frontLineUnits.size() >= unitLimit)
                 break;
         }
     }
@@ -400,7 +405,8 @@ public class AdaptiveActionGenerator {
         if (harvestingWorkers.contains(unit)) {
 
            filteredActions.addAll(
-                   filterHarvesterActions(unit, harvestActions, moveActions, produceBarracksActions, produceBaseActions, 1));
+                   filterHarvesterActions(unit, harvestActions, moveActions, produceBarracksActions, produceBaseActions,
+                           maxProduceActionsChosen));
 
            filteredActions.add(waitAction);
            return filteredActions;
@@ -409,7 +415,8 @@ public class AdaptiveActionGenerator {
         // The unit is adopting a defensive stance.
         if (defendingUnits.contains(unit)) {
 
-            filteredActions.addAll(filterDefenseActions(unit, moveActions, attackActions, 6, 3, 2));
+            filteredActions.addAll(filterDefenseActions(unit, moveActions, attackActions,
+                    horizontalDistanceFromBase, verticalDistanceFromBase, radiusFromBase, maxClosestOpponentUnitsOnDefense));
             filteredActions.add(waitAction);
             return filteredActions;
         }
@@ -417,7 +424,7 @@ public class AdaptiveActionGenerator {
         // The unit is adopting an attacking stance.
         if (attackingUnits.contains(unit)) {
 
-            filteredActions.addAll(filterAttackActions(unit, moveActions, attackActions, 2));
+            filteredActions.addAll(filterAttackActions(unit, moveActions, attackActions, maxClosestOpponentUnitsOnAttack));
 
             filteredActions.add(waitAction);
             return filteredActions;
@@ -428,7 +435,7 @@ public class AdaptiveActionGenerator {
             // Production is possible, either train a Light, Ranged, or Heavy unit, within the limits.
             if (canProduce) {
                 filteredActions.addAll(filterBarracksActions(produceLightActions, produceRangedActions,
-                        produceHeavyActions, 1));
+                        produceHeavyActions, maxProduceActionsChosen));
             }
 
             filteredActions.add(waitAction);
@@ -439,7 +446,7 @@ public class AdaptiveActionGenerator {
         if (bases.contains(unit)) {
             // Production is possible, train workers within the limits.
             if (canProduce) {
-                filteredActions.addAll(filterBaseActions(produceWorkerActions, 1));
+                filteredActions.addAll(filterBaseActions(produceWorkerActions, maxProduceActionsChosen));
             }
 
             filteredActions.add(waitAction);
@@ -455,38 +462,58 @@ public class AdaptiveActionGenerator {
 
         List<UnitAction> filteredActions = new LinkedList<>();
 
-        if (!harvestActions.isEmpty()) // Harvesting is possible (Return/Harvest)
+        // Harvesting is possible (Return/Harvest)
+        if (!harvestActions.isEmpty())
             filteredActions.addAll(harvestActions);
-        else { // In between the harvesting actions, check if building is possible under the limits.
+        else {
+            // In between the harvesting actions, check if building is possible under the limits.
             if (!produceBarracksActions.isEmpty() && (maxBarracks == -1 || nbBarracks < maxBarracks))
-                filteredActions.addAll(
-                        choseBuildingPositionsNonAdjacentToBase(unit, produceBarracksActions, maxProduceActionsChosen));
+                switch (buildingMode) {
+                    case BUILD_TRAIN_RANDOM_LOCATION:
+                        filteredActions.addAll(choseRandomActionsFrom(produceBarracksActions, maxProduceActionsChosen));
+                    case BUILD_AWAY_FROM_BASE:
+                        filteredActions.addAll(
+                                choseBuildingPositionsNonAdjacentToBase(unit, produceBarracksActions, maxProduceActionsChosen));
+                }
             else if (!produceBaseActions.isEmpty() && (maxBases == -1 || nbBases < maxBases))
                 filteredActions.addAll(choseRandomActionsFrom(produceBarracksActions, maxProduceActionsChosen));
+
             // Move towards the closest base or the closest resource deposit
             if (!moveActions.isEmpty())
                 filteredActions.add(getHarvestActions(unit, moveActions));
         }
-        
         return filteredActions;
     }
 
     private List<UnitAction> filterDefenseActions(Unit unit, List<UnitAction> moveActions, List<UnitAction> attackActions,
-                                                  int horizontalDistance, int verticalDistance, int maxClosestOpponentUnits) {
+                                                  int horizontalDistance, int verticalDistance, int radius, int maxClosestOpponentUnits) {
 
         List<UnitAction> filteredActions = new LinkedList<>();
 
         filteredActions.addAll(attackActions); // Attack actions are always added.
         if (!moveActions.isEmpty()) { // Movement is possible.
-            if (random.nextFloat() >= epsilonMovement)
-                filteredActions.addAll(
-                        restrictMovementAroundBase(unit, // Restrict movement around the predefined perimeter around the base.
-                                // Chase units inside the perimeter.
-                                getMoveActionsToClosestOpponentUnits(unit, maxClosestOpponentUnits),
-                                horizontalDistance, verticalDistance));
-            else
-                filteredActions.addAll(
-                        restrictMovementAroundBase(unit, moveActions, horizontalDistance, verticalDistance));
+            if (random.nextFloat() >= epsilonMovement) { // Exploit
+
+                if (horizontalDistance > 0 && verticalDistance > 0) // Rectangular Defense Perimeter.
+                    // Restrict movement around the predefined perimeter around the base. Chase units inside the perimeter.
+                    filteredActions.addAll(
+                            keepInsideRectangularPerimeterAroundBase(unit,
+                                    getMoveActionsToClosestOpponentUnits(unit, maxClosestOpponentUnits),
+                                    horizontalDistance, verticalDistance));
+                else if (radius > 0) // Circular Defense Perimeter.
+                    filteredActions.addAll(
+                            keepInsideCircularPerimeterAroundBase(unit,
+                                    getMoveActionsToClosestOpponentUnits(unit, maxClosestOpponentUnits), radius));
+            }
+            else { // Explore all directions
+
+                if (horizontalDistance > 0 && verticalDistance > 0) // Rectangular Defense Perimeter
+                    filteredActions.addAll(
+                            keepInsideRectangularPerimeterAroundBase(unit, moveActions, horizontalDistance, verticalDistance));
+                else if (radius > 0) // Circular Defense Perimeter
+                    filteredActions.addAll(
+                            keepInsideCircularPerimeterAroundBase(unit, moveActions, radius));
+            }
 
         }
 
@@ -503,7 +530,7 @@ public class AdaptiveActionGenerator {
             filteredActions.addAll(moveActions); // Add all possible move actions (escapes) // TODO : restrict escape moves
         } else if (!moveActions.isEmpty()) {
             if (random.nextFloat() >= epsilonMovement) // Exploit. Chase a number of close opponent units.
-                filteredActions.addAll(getMoveActionsToClosestOpponentUnits(unit,maxClosestOpponentUnits));
+                filteredActions.addAll(getMoveActionsToClosestOpponentUnits(unit, maxClosestOpponentUnits));
             else // Explore. Return all movement directions.
                 filteredActions.addAll(moveActions);
         }
@@ -639,7 +666,7 @@ public class AdaptiveActionGenerator {
     /**
      * Returns the next action to consider for a harvesting unit. Either move towards the closest resource deposit,
      * or move towards the closest base.
-     *
+     * TODO : join attack units if harvesting is not possible.
      * @param unit The worker unit in question.
      * @param possibleMoveActions The fallback move actions, in case path finding fails.
      * @return A TYPE_MOVE unit action.
@@ -731,8 +758,8 @@ public class AdaptiveActionGenerator {
      * @return A list of move actions, without the moves going beyond the perimeter around the base defined by the
      * vertical and horizontal distances.
      */
-    private List<UnitAction> restrictMovementAroundBase(Unit unit, List<UnitAction> moveActions,
-                                                        int horizontalDistance, int verticalDistance) {
+    private List<UnitAction> keepInsideRectangularPerimeterAroundBase(Unit unit, List<UnitAction> moveActions,
+                                                                      int horizontalDistance, int verticalDistance) {
 
         if (bases.isEmpty())
             return moveActions;
@@ -769,6 +796,66 @@ public class AdaptiveActionGenerator {
         return restrictedMoveActions;
     }
 
+    /**
+     * Similar to the previous method, but restricts movement to a circular area around base, defined by a given radius.
+     *
+     * @param unit The unit in question.
+     * @param moveActions The possible move actions.
+     * @param radius The radius of the perimeter.
+     * @return A list of move unit actions, not going beyond the defense radius.
+     */
+    private List<UnitAction> keepInsideCircularPerimeterAroundBase(Unit unit, List<UnitAction> moveActions, double radius) {
+
+        if (bases.isEmpty())
+            return moveActions;
+
+        Unit base = bases.get(0);
+
+        //Unit Already out. // TODO : remove unit from defense group and add to attack group.
+        if (euclideanDistanceNoSqrt(base.getX(), base.getY(), unit.getX(), unit.getY()) > radius * radius)
+            return moveActions;
+
+        List<UnitAction> restrictedMoveActions = new LinkedList<>();
+
+        for (UnitAction moveAction : moveActions) {
+            switch (moveAction.getDirection()) {
+                case UnitAction.DIRECTION_UP:
+                    if (euclideanDistanceNoSqrt(
+                            base.getX(), base.getY(), unit.getX(), unit.getY() - 1) <= radius * radius)
+                        restrictedMoveActions.add(moveAction);
+                    break;
+                case UnitAction.DIRECTION_RIGHT:
+                    if (euclideanDistanceNoSqrt(
+                            base.getX(), base.getY(), unit.getX() + 1, unit.getY()) <= radius * radius)
+                        restrictedMoveActions.add(moveAction);
+                    break;
+                case UnitAction.DIRECTION_DOWN:
+                    if (euclideanDistanceNoSqrt(
+                            base.getX(), base.getY(), unit.getX(), unit.getY() + 1) <= radius * radius)
+                        restrictedMoveActions.add(moveAction);
+                    break;
+                case UnitAction.DIRECTION_LEFT:
+                    if (euclideanDistanceNoSqrt(
+                            base.getX(), base.getY(), unit.getX() - 1, unit.getY()) <= radius * radius)
+                        restrictedMoveActions.add(moveAction);
+                    break;
+            }
+        }
+
+        return restrictedMoveActions;
+    }
+
+    private double euclideanDistanceNoSqrt(int X1, int Y1, int X2, int Y2) {
+        return (X1 - X2) * (X1 - X2) + (Y1 - Y2) * (Y1 - Y2);
+    }
+
+    /**
+     * Chose a building position as far as possible from base.
+     * @param unit
+     * @param unitActions
+     * @param maxChoices
+     * @return
+     */
     private List<UnitAction> choseBuildingPositionsNonAdjacentToBase(Unit unit, List<UnitAction> unitActions, int maxChoices) {
 
         if (bases.isEmpty())
@@ -815,6 +902,12 @@ public class AdaptiveActionGenerator {
         return chosenActions;
     }
 
+    /**
+     * Selects a number of random actions from a list of given unit actions.
+     * @param unitActions
+     * @param maxChoices
+     * @return
+     */
     private List<UnitAction> choseRandomActionsFrom(List<UnitAction> unitActions, int maxChoices) {
 
         List<UnitAction> actions = new LinkedList<>(unitActions);
@@ -829,8 +922,6 @@ public class AdaptiveActionGenerator {
             return chosenActions;
         }
     }
-
-
 
     public List<Pair<Unit, List<UnitAction>>> getChoices() {
         return choices;
