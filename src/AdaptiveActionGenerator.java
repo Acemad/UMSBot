@@ -15,17 +15,16 @@ import java.util.*;
  */
 public class AdaptiveActionGenerator {
 
-    // Random movement mode.
-    public static final int FREE_ROAM = 0; // TODO
     // Defense Modes
-    public static final int DEFEND_INSIDE = 1, DEFEND_OUTSIDE = 2; // TODO
+    public static final int DEFEND_BASE = 1, DEFEND_AROUND_SELF = 2; // TODO
     // Attack Modes
-    public static final int ATTACK_CLOSEST = 1, ATTACK_WEAKEST = 2, ATTACK_STRONGEST = 3, ATTACK_PRIORITY = 4; // TODO
+    public static final int ATTACK_CLOSEST = 1, ATTACK_CLOSEST_TO_BASE = 2, ATTACK_MIN_HP = 3, ATTACK_MAX_HP = 4,
+            ATTACK_RANDOM = 5; // TODO
     // Harvest Modes
     public static final int AUTO_HARVEST = 1; // TODO
 
     // Building / Training Modes
-    public static final int BUILD_TRAIN_RANDOM_LOCATION = 0, BUILD_AWAY_FROM_BASE = 1, TRAIN_OUTER_SIDE = 2; // TODO
+    public static final int BUILD_OR_TRAIN_AT_RANDOM_LOCATION = 0, BUILD_AWAY_FROM_BASE = 1, TRAIN_OUTER_SIDE = 2; // TODO
 
 
     // The limits imposed on the number of possible units, of each type.
@@ -40,18 +39,20 @@ public class AdaptiveActionGenerator {
     private static int backWaitDuration = 10;
 
     // Defense
-    private static int horizontalDistanceFromBase = 0, verticalDistanceFromBase = 0, radiusFromBase = 4,
-            maxClosestOpponentUnitsOnDefense = 2;
+    private static int horizontalDistanceFromBase = 9, verticalDistanceFromBase = 9, radiusFromBase = 0,
+            maxTargetsOnDefense = 2, defenseMode = DEFEND_BASE;
 
     // Attack
-    private static int maxClosestOpponentUnitsOnAttack = 2;
+    private static int maxEscapes = 1, maxTargetsOnAttack = 2, attackMode = ATTACK_MAX_HP;
 
     // Production : Building / Training
-    private static int maxProduceActionsChosen = 1, buildingMode = BUILD_TRAIN_RANDOM_LOCATION,
-            trainingMode = BUILD_TRAIN_RANDOM_LOCATION;
+    private static int maxProduceActionsChosen = 1, buildingMode = BUILD_OR_TRAIN_AT_RANDOM_LOCATION,
+            trainingMode = BUILD_OR_TRAIN_AT_RANDOM_LOCATION;
 
-    // Exploration parameter for movements.
-    private static float epsilonMovement = 0.05f;
+    // Exploration parameter for movements. 1 : Random, 0 : Focused
+    private static float epsilonDefenseMovement = 0.05f;
+    private static float epsilonAttackMovement = 0.05f;
+    private static float epsilonHarvestMovement = 0.05f;
 
     // ***************************************************************
 
@@ -416,7 +417,7 @@ public class AdaptiveActionGenerator {
         if (defendingUnits.contains(unit)) {
 
             filteredActions.addAll(filterDefenseActions(unit, moveActions, attackActions,
-                    horizontalDistanceFromBase, verticalDistanceFromBase, radiusFromBase, maxClosestOpponentUnitsOnDefense));
+                    horizontalDistanceFromBase, verticalDistanceFromBase, radiusFromBase, maxTargetsOnDefense));
             filteredActions.add(waitAction);
             return filteredActions;
         }
@@ -424,7 +425,7 @@ public class AdaptiveActionGenerator {
         // The unit is adopting an attacking stance.
         if (attackingUnits.contains(unit)) {
 
-            filteredActions.addAll(filterAttackActions(unit, moveActions, attackActions, maxClosestOpponentUnitsOnAttack));
+            filteredActions.addAll(filterAttackActions(unit, moveActions, attackActions, maxTargetsOnAttack, maxEscapes));
 
             filteredActions.add(waitAction);
             return filteredActions;
@@ -469,7 +470,7 @@ public class AdaptiveActionGenerator {
             // In between the harvesting actions, check if building is possible under the limits.
             if (!produceBarracksActions.isEmpty() && (maxBarracks == -1 || nbBarracks < maxBarracks))
                 switch (buildingMode) {
-                    case BUILD_TRAIN_RANDOM_LOCATION:
+                    case BUILD_OR_TRAIN_AT_RANDOM_LOCATION:
                         filteredActions.addAll(choseRandomActionsFrom(produceBarracksActions, maxProduceActionsChosen));
                     case BUILD_AWAY_FROM_BASE:
                         filteredActions.addAll(
@@ -480,39 +481,67 @@ public class AdaptiveActionGenerator {
 
             // Move towards the closest base or the closest resource deposit
             if (!moveActions.isEmpty())
-                filteredActions.add(getHarvestActions(unit, moveActions));
+                if (random.nextFloat() >= epsilonHarvestMovement)
+                    filteredActions.add(getHarvestActions(unit, moveActions));
+                else
+                    filteredActions.addAll(moveActions);
         }
         return filteredActions;
     }
 
     private List<UnitAction> filterDefenseActions(Unit unit, List<UnitAction> moveActions, List<UnitAction> attackActions,
-                                                  int horizontalDistance, int verticalDistance, int radius, int maxClosestOpponentUnits) {
+                                                  int horizontalDistance, int verticalDistance, int radius, int maxTargets) {
 
         List<UnitAction> filteredActions = new LinkedList<>();
 
         filteredActions.addAll(attackActions); // Attack actions are always added.
+
         if (!moveActions.isEmpty()) { // Movement is possible.
-            if (random.nextFloat() >= epsilonMovement) { // Exploit
 
-                if (horizontalDistance > 0 && verticalDistance > 0) // Rectangular Defense Perimeter.
-                    // Restrict movement around the predefined perimeter around the base. Chase units inside the perimeter.
-                    filteredActions.addAll(
-                            keepInsideRectangularPerimeterAroundBase(unit,
-                                    getMoveActionsToClosestOpponentUnits(unit, maxClosestOpponentUnits),
-                                    horizontalDistance, verticalDistance));
-                else if (radius > 0) // Circular Defense Perimeter.
-                    filteredActions.addAll(
-                            keepInsideCircularPerimeterAroundBase(unit,
-                                    getMoveActionsToClosestOpponentUnits(unit, maxClosestOpponentUnits), radius));
+            if (random.nextFloat() >= epsilonDefenseMovement) { // Exploit
+
+                switch (defenseMode) {
+                    case DEFEND_BASE: // Chase opponent units inside defense perimeter.
+                        if (horizontalDistance > 0 && verticalDistance > 0) // Rectangular Defense Perimeter.
+                            // Restrict movement around the predefined perimeter around the base. Chase units inside the perimeter.
+                            filteredActions.addAll(
+                                    keepInsideRectangularPerimeterAroundBase(unit,
+                                            getMoveActionsToOpponentUnitsClosestToBase(unit, maxTargets),
+                                            horizontalDistance, verticalDistance));
+                        else if (radius > 0) // Circular Defense Perimeter.
+                            filteredActions.addAll(
+                                    keepInsideCircularPerimeterAroundBase(unit,
+                                            getMoveActionsToOpponentUnitsClosestToBase(unit, maxTargets),
+                                            radius));
+                        else
+                            filteredActions.addAll(getMoveActionsToOpponentUnitsClosestToBase(unit, maxTargets));
+                        break;
+
+                    case DEFEND_AROUND_SELF: // Chase the opponent units closest to self.
+                        if (horizontalDistance > 0 && verticalDistance > 0)
+                            filteredActions.addAll(
+                                    keepInsideRectangularPerimeterAroundBase(unit,
+                                            getMoveActionsToClosestOpponentUnits(unit, maxTargets),
+                                            horizontalDistance, verticalDistance));
+                        else if (radius > 0)
+                            filteredActions.addAll(
+                                    keepInsideCircularPerimeterAroundBase(unit,
+                                            getMoveActionsToClosestOpponentUnits(unit, maxTargets),
+                                            radius));
+                        else
+                            filteredActions.addAll(getMoveActionsToClosestOpponentUnits(unit, maxTargets));
+                        break;
+                }
             }
-            else { // Explore all directions
-
+            else { // Explore all directions. Move aimlessly inside perimeter.
                 if (horizontalDistance > 0 && verticalDistance > 0) // Rectangular Defense Perimeter
                     filteredActions.addAll(
                             keepInsideRectangularPerimeterAroundBase(unit, moveActions, horizontalDistance, verticalDistance));
                 else if (radius > 0) // Circular Defense Perimeter
                     filteredActions.addAll(
                             keepInsideCircularPerimeterAroundBase(unit, moveActions, radius));
+                else
+                    filteredActions.addAll(moveActions);
             }
 
         }
@@ -521,17 +550,32 @@ public class AdaptiveActionGenerator {
     }
 
     private List<UnitAction> filterAttackActions(Unit unit, List<UnitAction> moveActions,
-                                                 List<UnitAction> attackActions, int maxClosestOpponentUnits) {
+                                                 List<UnitAction> attackActions, int maxTargets, int maxEscapes) {
 
         List<UnitAction> filteredActions = new LinkedList<>();
 
         if (!attackActions.isEmpty()) { // Attacking is possible.
             filteredActions.addAll(attackActions);
-            filteredActions.addAll(moveActions); // Add all possible move actions (escapes) // TODO : restrict escape moves
+            filteredActions.addAll(choseRandomActionsFrom(moveActions, maxEscapes)); // Add all possible move actions (escapes) // TODO : restrict escape moves
         } else if (!moveActions.isEmpty()) {
-            if (random.nextFloat() >= epsilonMovement) // Exploit. Chase a number of close opponent units.
-                filteredActions.addAll(getMoveActionsToClosestOpponentUnits(unit, maxClosestOpponentUnits));
-            else // Explore. Return all movement directions.
+            if (random.nextFloat() >= epsilonAttackMovement) { // Exploit. Chase a number of close opponent units.
+                switch (attackMode) {
+                    case ATTACK_CLOSEST:
+                        filteredActions.addAll(getMoveActionsToClosestOpponentUnits(unit, maxTargets));
+                        break;
+                    case ATTACK_CLOSEST_TO_BASE:
+                        filteredActions.addAll(getMoveActionsToOpponentUnitsClosestToBase(unit, maxTargets));
+                        break;
+                    case ATTACK_MAX_HP:
+                        filteredActions.addAll(getMoveActionsToHighestHPOpponentUnits(unit, maxTargets));
+                        break;
+                    case ATTACK_MIN_HP:
+                        filteredActions.addAll(getMoveActionsToLowestHPOpponentUnits(unit, maxTargets));
+                        break;
+                    case ATTACK_RANDOM:
+                        filteredActions.addAll(getMoveActionsToRandomOpponentUnits(unit, maxTargets));
+                }
+            } else // Explore. Return all movement directions.
                 filteredActions.addAll(moveActions);
         }
 
@@ -610,23 +654,109 @@ public class AdaptiveActionGenerator {
      * based on their proximity to the current unit.
      *
      * @param unit The units in question.
-     * @param maxClosestOpponentUnits The number of close opponent units to consider.
+     * @param maxTargets The number of close opponent units to consider.
      * @return UnitAction.TYPE_MOVE list.
      */
-    private List<UnitAction> getMoveActionsToClosestOpponentUnits(Unit unit, int maxClosestOpponentUnits) {
+    private List<UnitAction> getMoveActionsToClosestOpponentUnits(Unit unit, int maxTargets) {
+        return getDirectedMoveActions(unit, getClosestOpponentUnitsTo(unit, maxTargets));
+    }
 
-        List<UnitAction> targetedMovements = new LinkedList<>();
-        List<Unit> closestOpponentUnits = getClosestOpponentUnitsTo(unit, maxClosestOpponentUnits);
+    private List<UnitAction> getMoveActionsToOpponentUnitsClosestToBase(Unit unit, int maxTargets) {
+        if (!bases.isEmpty())
+            return getDirectedMoveActions(unit, getClosestOpponentUnitsTo(bases.get(0), maxTargets));
+        else
+            return getDirectedMoveActions(unit, getClosestOpponentUnitsTo(unit, maxTargets));
+    }
 
-        for (Unit opponentUnit : closestOpponentUnits) {
+    private List<UnitAction> getMoveActionsToLowestHPOpponentUnits(Unit unit, int maxTargets) {
+        return getDirectedMoveActions(unit, getLowestHPOpponentUnits(maxTargets));
+    }
+
+    private List<UnitAction> getMoveActionsToHighestHPOpponentUnits(Unit unit, int maxTargets) {
+        return getDirectedMoveActions(unit, getHighestHPOpponentUnits(maxTargets));
+    }
+
+    private List<UnitAction> getMoveActionsToRandomOpponentUnits(Unit unit, int maxTargets) {
+        return getDirectedMoveActions(unit, getRandomOpponentUnits(maxTargets));
+    }
+
+    private List<UnitAction> getDirectedMoveActions(Unit unit, List<Unit> targetUnits) {
+        List<UnitAction> directedMoveActions = new LinkedList<>();
+        for (Unit opponentUnit : targetUnits) {
             int targetPosition = opponentUnit.getX() + opponentUnit.getY() * physicalGameState.getWidth();
-            UnitAction targetedMove = pathFinder.findPathToPositionInRange(
+            UnitAction directedMove = pathFinder.findPathToPositionInRange(
                     unit, targetPosition, unit.getAttackRange(), gameState, resourceUsage);
-            if (targetedMove != null)
-                targetedMovements.add(targetedMove);
+            if (directedMove != null)
+                directedMoveActions.add(directedMove);
         }
+        return directedMoveActions;
+    }
 
-        return targetedMovements;
+
+
+    private List<Unit> getLowestHPOpponentUnits(int maxTargets) {
+        List<Unit> opponentUnits = new LinkedList<>(this.opponentUnits);
+        List<Unit> lowestHPOpponentUnits = new LinkedList<>();
+
+        if (opponentUnits.size() > maxTargets) {
+            while (lowestHPOpponentUnits.size() < maxTargets) {
+                int lowestHP = 0;
+                Unit lowestHPUnit = null;
+                for (Unit opponentUnit : opponentUnits) {
+                    int unitHP = opponentUnit.getHitPoints();
+                    if (lowestHPUnit == null || unitHP < lowestHP) {
+                        lowestHP = unitHP;
+                        lowestHPUnit = opponentUnit;
+                    }
+                }
+                lowestHPOpponentUnits.add(lowestHPUnit);
+                opponentUnits.remove(lowestHPUnit);
+            }
+
+        } else
+            return opponentUnits;
+
+        return lowestHPOpponentUnits;
+    }
+
+    private List<Unit> getHighestHPOpponentUnits(int maxTargets) {
+        List<Unit> opponentUnits = new LinkedList<>(this.opponentUnits);
+        List<Unit> highestHPOpponentUnits = new LinkedList<>();
+
+        if (opponentUnits.size() > maxTargets) {
+            while (highestHPOpponentUnits.size() < maxTargets) {
+                int highestHP = 0;
+                Unit highestHPUnit = null;
+                for (Unit opponentUnit : opponentUnits) {
+                    int unitHP = opponentUnit.getHitPoints();
+                    if (highestHPUnit == null || unitHP > highestHP) {
+                        highestHP = unitHP;
+                        highestHPUnit = opponentUnit;
+                    }
+                }
+                highestHPOpponentUnits.add(highestHPUnit);
+                opponentUnits.remove(highestHPUnit);
+            }
+
+        } else
+            return opponentUnits;
+
+        return highestHPOpponentUnits;
+    }
+
+    private List<Unit> getRandomOpponentUnits(int maxTargets) {
+        List<Unit> opponentUnits = new LinkedList<>(this.opponentUnits);
+        List<Unit> randomOpponentUnits = new LinkedList<>();
+
+        if (opponentUnits.size() > maxTargets) {
+            while (randomOpponentUnits.size() < maxTargets) {
+                randomOpponentUnits.add(
+                        opponentUnits.remove(random.nextInt(opponentUnits.size())));
+            }
+        } else
+            return opponentUnits;
+
+        return randomOpponentUnits;
     }
 
     /**
@@ -922,6 +1052,8 @@ public class AdaptiveActionGenerator {
             return chosenActions;
         }
     }
+
+    
 
     public List<Pair<Unit, List<UnitAction>>> getChoices() {
         return choices;
