@@ -15,27 +15,28 @@ import java.util.*;
  */
 public class AdaptiveActionGenerator {
 
-    // Defense Modes
+    // Defense Modes ************************************************************
     public static final int DEFEND_BASE = 0; // Attack units closest to base.
     public static final int DEFEND_AROUND_SELF = 1; // Attack units closest to self.
 
-    // Attack Modes
+    // Attack Modes *************************************************************
     public static final int ATTACK_CLOSEST = 0; // Attack units closest to self.
     public static final int ATTACK_CLOSEST_TO_BASE = 1; // Attack units closest to self.
     public static final int ATTACK_MIN_HP = 2; // Attack units with smallest HP.
     public static final int ATTACK_MAX_HP = 3; // Attack units with biggest HP.
     public static final int ATTACK_RANDOM = 4; // Chose attack targets randomly.
 
-    // Building / Training Modes
+    // Building / Training Modes ************************************************
     public static final int BUILD_OR_TRAIN_AT_RANDOM_LOCATION = 0; // Build or Train at a random location (adjacent to base/barracks)
     public static final int BUILD_AWAY_FROM_BASE = 1; // Build barracks away from base (not adjacent)
     public static final int TRAIN_OUTER_SIDE = 2; // Train units in the outer side of the structures.
 
-    // Front-Line Selection Modes
+    // Front-Line Selection Modes ***********************************************
     public static final int SELECT_FL_BY_OWN_RANGE = 0; // Select units having an opponent unit in their attack range.
     public static final int SELECT_FL_BY_OPPONENT_RANGE = 1; // Select units in the attack range of opponent units.
 
-    // The limits imposed on the number of possible units, of each type.
+
+    // The limits imposed on the number of possible units, of each type. *******************************************
     // 0 : do not produce, -1 : produce infinitely, n : produce n at most.
     private static int maxBases = 1; // The number of Bases to build, at most.
     private static int maxBarracks = 2 ; // The number of Barracks to build, at most.
@@ -49,14 +50,14 @@ public class AdaptiveActionGenerator {
     private static int maxDefenseRanged = -1; // The number of defending Ranged to train, at most.
     private static int maxDefenseHeavies = 2; // The number of defending Heavies to train, at most.
 
-    // Front Line tactics, -1 maxFontLineUnits means take all units in the front-line
+    // Front Line tactics, -1 maxFontLineUnits means take all units in the front-line *******************************
     private static int frontLineSelectionMode = SELECT_FL_BY_OWN_RANGE; // Front-Line selection method.
     private static int maxFrontLineUnits = 3; // Maximum number of front-line units to consider. -1: take all, 0: take none.
     private static int frontLineTacticalDistance = 1; // The tactical distance ahead of attack range.
     private static int frontLineWaitDuration = 3; // Wait duration of front-line units.
     private static int backWaitDuration = 10; // Wait duration of back units.
 
-    // Defense : parameters defining the defense behavior.
+    // Defense : parameters defining the defense behavior. **********************************************************
     // Rectangular defense perimeter: If both vertical and horizontal distances are > 0, a rectangular defense perimeter
     // is set, otherwise, it is disabled and a circular defense perimeter may take its place.
     private static int horizontalDistanceFromBase = 0; // Rectangular defense: the horizontal distance from base.
@@ -70,17 +71,17 @@ public class AdaptiveActionGenerator {
     private static int defenseTime = 500; // After each defenseTime period, a stance switch is triggered, from def to attack
     private static int switchDelay = 200; // The amount of time in which defense units are allowed to switch stance, after the trigger.
 
-    // Attack : parameters defining the attack behavior.
+    // Attack : parameters defining the attack behavior. ************************************************************
     private static int maxEscapes = 1; // If a unit can attack and also move, maxEscapes limit the number of move actions allowed
     private static int maxTargetsOnAttack = 2; // The maximum number of enemy units to target on attack mode.
     private static int attackMode = ATTACK_CLOSEST; // The attack mode in uses.
 
-    // Production : Building / Training
+    // Production : Building / Training *****************************************************************************
     private static int maxProduceActionsChosen = 2; // If a unit can produce, limit the number of produce actions to chose from.
     private static int buildingLocation = BUILD_AWAY_FROM_BASE; // The Barracks building location.
     private static int trainingLocation = TRAIN_OUTER_SIDE; // The mobile units training location.
 
-    // Exploration parameter for movements. 1 : Random, 0 : Focused (using path finding)
+    // Exploration parameter for movements. 1 : Random, 0 : Focused (using path finding) ****************************
     private static float epsilonHarvestMovement = 0.05f; // The exploration parameter of harvesting units.
     private static float epsilonDefenseMovement = 0.05f;                              // defense units.
     private static float epsilonAttackMovement = 0.05f;                               // attack units.
