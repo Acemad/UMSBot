@@ -13,12 +13,14 @@ import java.util.List;
 public class UMSBot extends AIWithComputationBudget {
 
     UnitTypeTable unitTypeTable;
-    boolean started = false;
     AI agent;
+    boolean started = false;
+    int player;
 
     int simulationTime, maxDepth;
     float ipaPruneRate, epsilon0, epsilonGlobal, epsilonLocal;
 
+    StateMonitor stateMonitor;
     PreSelectionParameters parameters = new PreSelectionParameters();
 
     /**
@@ -46,15 +48,17 @@ public class UMSBot extends AIWithComputationBudget {
         if (!started) {
             initialize(gameState);
             started = true;
+            this.player = player;
         }
         return agent.getAction(player, gameState);
     }
 
     void initialize(GameState gameState) {
 
-        PhysicalGameState physicalGameState = gameState.getPhysicalGameState();
-        int mapWidth = physicalGameState.getWidth();
-        int mapHeight = physicalGameState.getHeight();
+        stateMonitor = new StateMonitor(gameState, player);
+//        PhysicalGameState physicalGameState = gameState.getPhysicalGameState();
+        int mapWidth = stateMonitor.getMapWidth();
+        int mapHeight = stateMonitor.getMapHeight();
 
         if (mapWidth <= 8) { // 8x8
             parameters.setUnitComposition(1, 0, 1, -1, 0, 0, 0, 2, 0, 0, 0, FunctionalGroupsMonitor.OFFENSE_PRIORITY);
@@ -83,7 +87,10 @@ public class UMSBot extends AIWithComputationBudget {
             epsilon0 = 0.3f; epsilonGlobal = 0.2f; epsilonLocal = 0.2f;
         }
         else if (mapWidth <= 16) { //10x10 12x12 16x16
-            parameters.setUnitComposition(1, 2, 2, 0, 2, 0, 0, 0, -1, -1, 2, FunctionalGroupsMonitor.OFFENSE_PRIORITY);
+            if (stateMonitor.getPlayerBarracks().size() > 0)
+                parameters.setUnitComposition(1, 2, 2, 0, 2, 0, 0, 0, -1, -1, 2, FunctionalGroupsMonitor.OFFENSE_PRIORITY);
+            else
+                parameters.setUnitComposition(1, 2, 2, 1, 2, 0, 0, 0, -1, -1, 2, FunctionalGroupsMonitor.OFFENSE_PRIORITY);
             parameters.setHarvest(0.05f, PreSelectionParameters.FLOOD_FILL_PF);
             parameters.setDefense(0, 0, (mapWidth / 2) - 2, 1, DefenseManager.DEFEND_BASE, PreSelectionParameters.A_STAR_PF, 0.05f);
             parameters.setOffense(2, 1, OffenseManager.TARGET_CLOSEST, OffenseManager.FIXED_TARGET_BARRACKS_FIRST, PreSelectionParameters.A_STAR_PF, 0.05f);
