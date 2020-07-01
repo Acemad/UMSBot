@@ -1,4 +1,7 @@
-import aes.nmcts.UnitActionsTableElement;
+package nmcts;
+
+import preselection.ParametricActionGenerator;
+import preselection.PreSelectionParameters;
 import rts.*;
 import rts.units.Unit;
 import util.Pair;
@@ -7,7 +10,7 @@ import util.Sampler;
 import java.math.BigInteger;
 import java.util.*;
 
-public class NMCTSAdaptiveNode {
+public class ParametricNMCTSNode {
 
     // Global strategies
     public static final int EPSILON_GREEDY = 0;
@@ -18,18 +21,20 @@ public class NMCTSAdaptiveNode {
 
     // Typical MCTS Node properties ************************************************
     private int type; // 0 : max, 1 : min, -1 : terminal
-    private NMCTSAdaptiveNode parent; // the node's parent, if any
+    private ParametricNMCTSNode parent; // the node's parent, if any
     private GameState gameState; // the associated game state
     private int depth = 0; // the node's depth in the tree
     private List<PlayerAction> actions; // the list of outbound actions
-    private List<NMCTSAdaptiveNode> children; // the list of this node's children
+    private List<ParametricNMCTSNode> children; // the list of this node's children
     private double accumulatedEvaluation = 0; // the accumulated evaluation of this node
     private int visitCount = 0; // the visit count
-    private AdaptiveActionGenerator actionGenerator; // the action generator object
+    private ParametricActionGenerator actionGenerator; // the action generator object
+    private PlayerActionGenerator normalActionGenerator;
+    private PreSelectionParameters parameters;
 
     // NaïveMCTS Specific properties ***********************************************
     private boolean exploreNonSampledActions = true; // to force the exploration of unvisited unit actions
-    private HashMap<BigInteger, NMCTSAdaptiveNode> childrenMap = new LinkedHashMap<>(); // Maps a binInteger to a node
+    private HashMap<BigInteger, ParametricNMCTSNode> childrenMap = new LinkedHashMap<>(); // Maps a binInteger to a node
     private List<UnitActionsTableElement> unitActionsTable; // Each unit's actions and their evaluation and visit count
     private BigInteger [] multipliers; // For action code calculation
 
@@ -48,11 +53,13 @@ public class NMCTSAdaptiveNode {
      * @param exploreNonSampledActions
      * @throws Exception
      */
-    public NMCTSAdaptiveNode(int player, GameState gameState, NMCTSAdaptiveNode parent, int nodeID, boolean exploreNonSampledActions) throws Exception {
+    public ParametricNMCTSNode(int player, GameState gameState, ParametricNMCTSNode parent, int nodeID, boolean exploreNonSampledActions,
+                               PreSelectionParameters parameters) throws Exception {
         this.parent = parent;
         this.gameState = gameState;
         this.nodeID = nodeID;
         this.exploreNonSampledActions = exploreNonSampledActions;
+        this.parameters = parameters;
 
         if (this.parent == null) depth = 0; // depth calculation
         else depth = this.parent.depth + 1;
@@ -69,7 +76,7 @@ public class NMCTSAdaptiveNode {
             type = -1;
         else if (this.gameState.canExecuteAnyAction(player)) { // Searching player node
             type = 0;
-            actionGenerator = new AdaptiveActionGenerator(this.gameState, player);
+            actionGenerator = new ParametricActionGenerator(this.gameState, player, this.parameters);
             actions = new ArrayList<>();
             children = new ArrayList<>();
             unitActionsTable = new LinkedList<>();
@@ -101,15 +108,16 @@ public class NMCTSAdaptiveNode {
 
         } else if (this.gameState.canExecuteAnyAction(1 - player)) { // Opponent node
             type = 1;
-            actionGenerator = new AdaptiveActionGenerator(this.gameState, 1 - player);
+            actionGenerator = new ParametricActionGenerator(this.gameState, 1 - player, this.parameters);
+//            normalActionGenerator = new PlayerActionGenerator(this.gameState, 1 - player);
             actions = new ArrayList<>();
             children = new ArrayList<>();
             unitActionsTable = new LinkedList<>();
-            multipliers = new BigInteger[actionGenerator.getChoices().size()];
+            multipliers = new BigInteger[actionGenerator.getChoices().size()]; //
 
             BigInteger baseMultiplier = BigInteger.ONE;
             int index = 0;
-            for (Pair<Unit, List<UnitAction>> actionChoices : actionGenerator.getChoices()) {
+            for (Pair<Unit, List<UnitAction>> actionChoices : actionGenerator.getChoices()) { //
                 UnitActionsTableElement unitActionsElement = new UnitActionsTableElement();
                 unitActionsElement.unit = actionChoices.m_a;
                 unitActionsElement.actions = actionChoices.m_b;
@@ -146,7 +154,7 @@ public class NMCTSAdaptiveNode {
      * @return
      * @throws Exception
      */
-    public NMCTSAdaptiveNode selectLeaf(int player, float epsilon0, float epsilonGlobal, float epsilonLocal, int globalStrategy,
+    public ParametricNMCTSNode selectLeaf(int player, float epsilon0, float epsilonGlobal, float epsilonLocal, int globalStrategy,
                                         int maxDepth, int nodeID, double evaluationBound, float allowProbability) throws Exception {
         // Return the current node, if unitActionsTable was not initialized (terminal node)
         // or in case the maximum depth has been reached.
@@ -156,7 +164,7 @@ public class NMCTSAdaptiveNode {
         // If the node has children, we can proceed with exploitation.
         if (children.size() > 0 && random.nextFloat() >= epsilon0) {
             // Sample from the global MAB. Exploit.
-            NMCTSAdaptiveNode selected = null;
+            ParametricNMCTSNode selected = null;
             if (globalStrategy == EPSILON_GREEDY) selected = selectFromGlobalMABEpsilonGreedy(epsilonGlobal);
             else if (globalStrategy == UCB1) selected = selectFromGlobalMABUCB1(C, evaluationBound);
             return selected.selectLeaf(player, epsilon0, epsilonGlobal, epsilonLocal, globalStrategy, maxDepth, nodeID,
@@ -174,12 +182,12 @@ public class NMCTSAdaptiveNode {
      * @param epsilonGlobal
      * @return
      */
-    private NMCTSAdaptiveNode selectFromGlobalMABEpsilonGreedy(float epsilonGlobal) {
+    private ParametricNMCTSNode selectFromGlobalMABEpsilonGreedy(float epsilonGlobal) {
 
-        NMCTSAdaptiveNode best = null;
+        ParametricNMCTSNode best = null;
 
         if (random.nextFloat() >= epsilonGlobal) { // Exploit : choose the best child.
-            for (NMCTSAdaptiveNode child : children) {
+            for (ParametricNMCTSNode child : children) {
                 if (type == 0) { // Max Node
                     if (best == null ||
                        (child.accumulatedEvaluation / child.visitCount) > (best.accumulatedEvaluation / best.visitCount))
@@ -202,10 +210,10 @@ public class NMCTSAdaptiveNode {
      * @param evaluationBound
      * @return
      */
-    private NMCTSAdaptiveNode selectFromGlobalMABUCB1(float C, double evaluationBound) {
-        NMCTSAdaptiveNode best = null;
+    private ParametricNMCTSNode selectFromGlobalMABUCB1(float C, double evaluationBound) {
+        ParametricNMCTSNode best = null;
         double bestScore = 0;
-        for (NMCTSAdaptiveNode child : children) {
+        for (ParametricNMCTSNode child : children) {
             // Compute the exploitation and exploration terms for each child.
             double exploitationTerm = child.accumulatedEvaluation / child.visitCount;
             double explorationTerm = Math.sqrt(Math.log((double) visitCount / child.visitCount));
@@ -229,7 +237,7 @@ public class NMCTSAdaptiveNode {
      * Constructs a player action using the local MABs
      * @return
      */
-    private NMCTSAdaptiveNode selectFromLocalMAB(int player, float epsilon0, float epsilonGlobal, float epsilonLocal,
+    private ParametricNMCTSNode selectFromLocalMAB(int player, float epsilon0, float epsilonGlobal, float epsilonLocal,
                                                  int globalStrategy, int maxDepth, int nodeID, double evaluationBound,
                                                  float allowProbability) throws Exception {
 
@@ -442,11 +450,12 @@ public class NMCTSAdaptiveNode {
 //        System.out.println(playerAction);
 
         // Check whether a node of the same playerActionCode already exists.
-        NMCTSAdaptiveNode oldChild = childrenMap.get(playerActionCode);
+        ParametricNMCTSNode oldChild = childrenMap.get(playerActionCode);
         if (oldChild == null) { // If no node with the same playerActionCode exists, create one.
             actions.add(playerAction);
             GameState newGameState = gameState.cloneIssue(playerAction);
-            NMCTSAdaptiveNode newChild = new NMCTSAdaptiveNode(player, newGameState.clone(), this, nodeID, exploreNonSampledActions);
+            ParametricNMCTSNode newChild = new ParametricNMCTSNode(player, newGameState.clone(), this, nodeID,
+                    exploreNonSampledActions, parameters);
             childrenMap.put(playerActionCode, newChild);
             children.add(newChild);
             return newChild;
@@ -461,7 +470,7 @@ public class NMCTSAdaptiveNode {
      * @param evaluation The result of the simulation.
      * @param child
      */
-    public void backpropagate(double evaluation, NMCTSAdaptiveNode child) {
+    public void backpropagate(double evaluation, ParametricNMCTSNode child) {
         // Update the node's accumulated evaluation and visit count.
         accumulatedEvaluation += evaluation;
         visitCount++;
@@ -505,7 +514,7 @@ public class NMCTSAdaptiveNode {
         throw new Error("Could not find Action Table element.");
     }
 
-    public AdaptiveActionGenerator getActionGenerator() {
+    public ParametricActionGenerator getActionGenerator() {
         return actionGenerator;
     }
 
@@ -517,7 +526,7 @@ public class NMCTSAdaptiveNode {
         return actions;
     }
 
-    public List<NMCTSAdaptiveNode> getChildren() {
+    public List<ParametricNMCTSNode> getChildren() {
         return children;
     }
 
@@ -527,5 +536,9 @@ public class NMCTSAdaptiveNode {
 
     public double getAccumulatedEvaluation() {
         return accumulatedEvaluation;
+    }
+
+    public int getDepth() {
+        return depth;
     }
 }

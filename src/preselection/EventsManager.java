@@ -1,4 +1,4 @@
-package refactor;
+package preselection;
 
 public class EventsManager {
 
@@ -73,7 +73,9 @@ public class EventsManager {
         if (overpowerFactor < 0f) return false;
         int playerScore = unitCompositionScore(stateMonitor.getPlayerID(), assaultUnitValue);
         int opponentScore = unitCompositionScore(stateMonitor.getOpponentID(), assaultUnitValue);
-        return playerScore * (1 - overpowerFactor) > opponentScore;
+        //return playerScore * (1 - overpowerFactor) > opponentScore;
+//        System.out.println((playerScore / (float) opponentScore));
+        return (playerScore / (float) opponentScore) >= overpowerFactor;
     }
 
     /**

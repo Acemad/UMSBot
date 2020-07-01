@@ -1,4 +1,4 @@
-package refactor;
+package preselection;
 
 import ai.abstraction.pathfinding.PathFinding;
 import rts.UnitAction;
@@ -31,9 +31,9 @@ public class DefenseManager extends HeuristicsManager {
      * @param verticalDistance The vertical distance from base of the rectangular defense perimeter.
      * @param radius The distance from base of the circular defense perimeter.
      * @param maxTargets The maximum number of enemy targets.
-     * @param defenseMode
-     * @param epsilonDefenseMovement
-     * @param shuffleActions
+     * @param defenseMode The defense mode, i.e., which unit to attack.
+     * @param epsilonDefenseMovement Exploration parameter for defense units.
+     * @param shuffleActions Shuffle the generated actions.
      * @return Filtered unit-actions list.
      */
     public List<UnitAction> filterActions(int horizontalDistance, int verticalDistance, int radius, int maxTargets,
