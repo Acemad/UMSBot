@@ -17,7 +17,7 @@ public class UMSBot extends AIWithComputationBudget {
     boolean started = false;
     int player;
 
-    int simulationTime, maxDepth;
+    int simulationTime = 0, maxDepth = 0; // Uninitialized.
     float ipaPruneRate, epsilon0, epsilonGlobal, epsilonLocal;
 
     StateMonitor stateMonitor;
@@ -36,6 +36,12 @@ public class UMSBot extends AIWithComputationBudget {
     public UMSBot(UnitTypeTable unitTypeTable) {
         super(100, -1);
         this.unitTypeTable = unitTypeTable;
+    }
+
+    public UMSBot(UnitTypeTable unitTypeTable, int simulationTime, int maxDepth) {
+        this(unitTypeTable);
+        this.simulationTime = simulationTime;
+        this.maxDepth = maxDepth;
     }
 
     @Override
@@ -70,7 +76,11 @@ public class UMSBot extends AIWithComputationBudget {
             parameters.setTraining(TrainingManager.TRAIN_AT_ISOLATED_SIDE, 2, 1, 1, 2);
             parameters.setFrontLine(SituationalGroupsMonitor.SELECT_BY_PLAYER_RANGE, 3, 1, 3, PreSelectionParameters.A_STAR_PF);
 
-            simulationTime = 200; maxDepth = 20; ipaPruneRate = 0.9f;
+            if (simulationTime == 0 && maxDepth == 0) {
+                simulationTime = 200;
+                maxDepth = 20;
+            }
+            ipaPruneRate = 0.9f;
             epsilon0 = 0.3f; epsilonGlobal = 0.3f; epsilonLocal = 0.3f;
         }
         else if (mapWidth == 9) { //9x8
@@ -83,7 +93,11 @@ public class UMSBot extends AIWithComputationBudget {
             parameters.setTraining(TrainingManager.TRAIN_AT_RANDOM_SIDE, 3, 0, 0, 0);
             parameters.setFrontLine(SituationalGroupsMonitor.SELECT_BY_PLAYER_RANGE, 3, 1, 3, PreSelectionParameters.A_STAR_PF);
 
-            simulationTime = 200; maxDepth = 20; ipaPruneRate = 0.9f;
+            if (simulationTime == 0 && maxDepth == 0) {
+                simulationTime = 200;
+                maxDepth = 20;
+            }
+            ipaPruneRate = 0.9f;
             epsilon0 = 0.3f; epsilonGlobal = 0.2f; epsilonLocal = 0.2f;
         }
         else if (mapWidth <= 16) { //10x10 12x12 16x16
@@ -99,7 +113,11 @@ public class UMSBot extends AIWithComputationBudget {
             parameters.setTraining(TrainingManager.TRAIN_AT_ISOLATED_SIDE, 2, 1, 2, 2);
             parameters.setFrontLine(SituationalGroupsMonitor.SELECT_BY_PLAYER_RANGE, 3, 1, 3, PreSelectionParameters.A_STAR_PF);
 
-            simulationTime = 200; maxDepth = 20; ipaPruneRate = 0.0f;
+            if (simulationTime == 0 && maxDepth == 0) {
+                simulationTime = 200;
+                maxDepth = 20;
+            }
+            ipaPruneRate = 0.0f;
             epsilon0 = 0.3f; epsilonGlobal = 0.3f; epsilonLocal = 0.3f;
         }
         else if (mapWidth <= 24) { //24x24
@@ -112,7 +130,11 @@ public class UMSBot extends AIWithComputationBudget {
             parameters.setTraining(TrainingManager.TRAIN_AT_ISOLATED_SIDE, 2, 1, 2, 2);
             parameters.setFrontLine(SituationalGroupsMonitor.SELECT_BY_PLAYER_RANGE, 3, 1, 3, PreSelectionParameters.A_STAR_PF);
 
-            simulationTime = 200; maxDepth = 20; ipaPruneRate = 0.0f;
+            if (simulationTime == 0 && maxDepth == 0) {
+                simulationTime = 200;
+                maxDepth = 20;
+            }
+            ipaPruneRate = 0.0f;
             epsilon0 = 0.3f; epsilonGlobal = 0.3f; epsilonLocal = 0.3f;
         }
         else if (mapWidth <= 32) { //32x32
@@ -125,7 +147,11 @@ public class UMSBot extends AIWithComputationBudget {
             parameters.setTraining(TrainingManager.TRAIN_AT_ISOLATED_SIDE, 2, 1, 2, 2);
             parameters.setFrontLine(SituationalGroupsMonitor.SELECT_BY_PLAYER_RANGE, 3, 1, 3, PreSelectionParameters.A_STAR_PF);
 
-            simulationTime = 200; maxDepth = 20; ipaPruneRate = 0.0f;
+            if (simulationTime == 0 && maxDepth == 0) {
+                simulationTime = 200;
+                maxDepth = 20;
+            }
+            ipaPruneRate = 0.0f;
             epsilon0 = 0.3f; epsilonGlobal = 0.3f; epsilonLocal = 0.3f;
         }
         else { //64x64 128x128 ++
@@ -138,7 +164,11 @@ public class UMSBot extends AIWithComputationBudget {
             parameters.setTraining(TrainingManager.TRAIN_AT_ISOLATED_SIDE, 2, 1, 2, 2);
             parameters.setFrontLine(SituationalGroupsMonitor.SELECT_BY_PLAYER_RANGE, 3, 1, 3, PreSelectionParameters.A_STAR_PF);
 
-            simulationTime = 200; maxDepth = 20; ipaPruneRate = 0.0f;
+            if (simulationTime == 0 && maxDepth == 0) {
+                simulationTime = 200;
+                maxDepth = 20;
+            }
+            ipaPruneRate = 0.0f;
             epsilon0 = 0.3f; epsilonGlobal = 0.3f; epsilonLocal = 0.3f;
         }
 
@@ -154,7 +184,7 @@ public class UMSBot extends AIWithComputationBudget {
 
     @Override
     public AI clone() {
-        UMSBot cloned = new UMSBot(unitTypeTable);
+        UMSBot cloned = new UMSBot(unitTypeTable, simulationTime, maxDepth);
         cloned.agent = agent;
         return cloned;
     }
