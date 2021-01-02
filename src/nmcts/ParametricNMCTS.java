@@ -7,21 +7,40 @@ import ai.core.InterruptibleAI;
 import ai.core.ParameterSpecification;
 import ai.evaluation.EvaluationFunction;
 import ai.evaluation.SimpleSqrtEvaluationFunction3;
+import com.eclipsesource.json.JsonObject;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
 import preselection.PreSelectionParameters;
 import rts.GameState;
 import rts.PlayerAction;
 import rts.units.UnitTypeTable;
+import scala.util.parsing.combinator.testing.Str;
 
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ParametricNMCTS extends AIWithComputationBudget implements InterruptibleAI {
 
     // Members ************************************************************************************
+    //@JsonIgnore
     private GameState initialGameState;
+    //@JsonIgnore
     private EvaluationFunction evaluationFunction;
+    //@JsonIgnore
     private AI playoutPolicy = new RandomBiasedAI();
+    //@JsonIgnore
     private ParametricNMCTSNode tree;
+    //@JsonIgnore
     private PreSelectionParameters parameters;
 
     private int player;
@@ -40,14 +59,14 @@ public class ParametricNMCTS extends AIWithComputationBudget implements Interrup
     private double evaluationBound;
 
     // Stats
-    int treeDepth = 0;
-    long totalRuns = 0;
-    long totalCyclesExecuted = 0;
-    long totalActionsIssued = 0;
-    long totalTime = 0;
+    private int treeDepth = 0;
+    private long totalRuns = 0;
+    private long totalCyclesExecuted = 0;
+    private long totalActionsIssued = 0;
+    private long totalTime = 0;
 
     // Inactivity Filtering
-    float ipaAllowProbability = 0.0f;
+    private float ipaAllowProbability = 0.0f;
 
     public ParametricNMCTS(UnitTypeTable unitTypeTable, float ipaAllowProbability) {
         this(unitTypeTable);
@@ -64,6 +83,25 @@ public class ParametricNMCTS extends AIWithComputationBudget implements Interrup
                 0.0f, new PreSelectionParameters());
     }
 
+    public ParametricNMCTS(UnitTypeTable unitTypeTable, int simulationTime, int maxDepth, float epsilon0, float epsilonGlobal,
+                           float epsilonLocal, float ipaAllowProbability, PreSelectionParameters parameters) {
+        this(unitTypeTable, 100, -1, simulationTime, maxDepth, epsilon0, epsilonGlobal,
+                epsilonLocal, ipaAllowProbability, parameters);
+    }
+
+    /**
+     *
+     * @param unitTypeTable
+     * @param timeBudget
+     * @param iterationBudget
+     * @param simulationTime
+     * @param maxDepth
+     * @param epsilon0
+     * @param epsilonGlobal
+     * @param epsilonLocal
+     * @param ipaAllowProbability
+     * @param parameters
+     */
     public ParametricNMCTS(UnitTypeTable unitTypeTable, int timeBudget, int iterationBudget,  int simulationTime,
                            int maxDepth, float epsilon0, float epsilonGlobal, float epsilonLocal, float ipaAllowProbability,
                            PreSelectionParameters parameters) {
@@ -270,7 +308,7 @@ public class ParametricNMCTS extends AIWithComputationBudget implements Interrup
     public AI clone() {
         return new ParametricNMCTS(TIME_BUDGET, ITERATIONS_BUDGET, simulationTime, maxDepth,
                          epsilon0, epsilonGlobal, epsilonLocal, globalStrategy, playoutPolicy,
-                         evaluationFunction, exploreNonSampledActions, ipaAllowProbability, parameters);
+                         evaluationFunction, exploreNonSampledActions, ipaAllowProbability, parameters.clone());
     }
 
     @Override
@@ -310,8 +348,40 @@ public class ParametricNMCTS extends AIWithComputationBudget implements Interrup
         return parameters;
     }
 
+    public String printPreselectionParameters() {
+        String output = parameters.toString();
+        output += "\n[MCTS]:   epsilon0:" + epsilon0 + " epsilonGlobal:" + epsilonGlobal +
+                " epsilonLocal:" + epsilonLocal + " IPAAllowProb:" + ipaAllowProbability;
+        return output;
+    }
+
+    public String toJSONStr() throws Exception {
+        return "{\"epsilon0\":" + epsilon0 + ", " +
+               "\"epsilonLocal\":" + epsilonLocal + ", " +
+               "\"epsilonGlobal\":" + epsilonGlobal + ", " +
+               "\"ipaAllowProbability\":" + ipaAllowProbability + ", " +
+               "\"parameters\":" + parameters.toJSONStr() + "}";
+    }
+
+    public void toJSONFile(String path) throws Exception {
+        FileWriter fileWriter = new FileWriter(path);
+        fileWriter.write(toJSONStr());
+        fileWriter.close();
+    }
+
+    public ParametricNMCTS(String json) throws Exception {
+        super(100, -1);
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode node = mapper.readTree(json);
+        this.epsilon0 = (float) node.get("epsilon0").asDouble();
+        this.epsilonGlobal = (float) node.get("epsilonGlobal").asDouble();
+        this.epsilonLocal = (float) node.get("epsilonLocal").asDouble();
+        this.ipaAllowProbability = (float) node.get("ipaAllowProbability").asDouble();
+        this.parameters = PreSelectionParameters.fromJSON(node.get("parameters").toString());
+    }
+
     public float getIpaAllowProbability() {
-        return ipaAllowProbability;
+        return this.ipaAllowProbability;
     }
 
     public void setIpaAllowProbability(float allowProbability) {
@@ -319,10 +389,38 @@ public class ParametricNMCTS extends AIWithComputationBudget implements Interrup
     }
 
     public int getSimulationTime() {
-        return simulationTime;
+        return this.simulationTime;
     }
 
     public int getMaxDepth() {
-        return maxDepth;
+        return this.maxDepth;
     }
+
+    public float getEpsilon0() {
+        return epsilon0;
+    }
+
+    public void setEpsilon0(float epsilon0) {
+        this.epsilon0 = epsilon0;
+    }
+
+    public float getEpsilonGlobal() {
+        return epsilonGlobal;
+    }
+
+    public void setEpsilonGlobal(float epsilonGlobal) {
+        this.epsilonGlobal = epsilonGlobal;
+    }
+
+    public float getEpsilonLocal() {
+        return epsilonLocal;
+    }
+
+    public void setEpsilonLocal(float epsilonLocal) {
+        this.epsilonLocal = epsilonLocal;
+    }
+
+
+
+
 }

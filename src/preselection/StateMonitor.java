@@ -551,4 +551,10 @@ public class StateMonitor {
         return gameState.getUnitActions();
     }
 
+    public List<Unit> getAllMobileUnits() {
+        List<Unit> allMobileUnits = new ArrayList<>(getPlayerMobileUnits());
+        allMobileUnits.addAll(getOpponentMobileUnits());
+        return allMobileUnits;
+    }
+
 }

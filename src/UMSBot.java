@@ -101,10 +101,10 @@ public class UMSBot extends AIWithComputationBudget {
             epsilon0 = 0.3f; epsilonGlobal = 0.2f; epsilonLocal = 0.2f;
         }
         else if (mapWidth <= 16) { //10x10 12x12 16x16
-            if (stateMonitor.getPlayerBarracks().size() > 0)
+//            if (stateMonitor.getPlayerBarracks().size() > 0)
                 parameters.setUnitComposition(1, 2, 2, 0, 2, 0, 0, 0, -1, -1, 2, FunctionalGroupsMonitor.OFFENSE_PRIORITY);
-            else
-                parameters.setUnitComposition(1, 2, 2, 1, 2, 0, 0, 0, -1, -1, 2, FunctionalGroupsMonitor.OFFENSE_PRIORITY);
+//            else
+//                parameters.setUnitComposition(1, 2, 2, 1, 2, 0, 0, 0, -1, -1, 2, FunctionalGroupsMonitor.OFFENSE_PRIORITY);
             parameters.setHarvest(0.05f, PreSelectionParameters.FLOOD_FILL_PF);
             parameters.setDefense(0, 0, (mapWidth / 2) - 2, 1, DefenseManager.DEFEND_BASE, PreSelectionParameters.A_STAR_PF, 0.05f);
             parameters.setOffense(2, 1, OffenseManager.TARGET_CLOSEST, OffenseManager.FIXED_TARGET_BARRACKS_FIRST, PreSelectionParameters.A_STAR_PF, 0.05f);
@@ -138,7 +138,8 @@ public class UMSBot extends AIWithComputationBudget {
             epsilon0 = 0.3f; epsilonGlobal = 0.3f; epsilonLocal = 0.3f;
         }
         else if (mapWidth <= 32) { //32x32
-            parameters.setUnitComposition(1, 1, 2, 0, 2, 0, 0, 0, -1, -1, 2, FunctionalGroupsMonitor.OFFENSE_PRIORITY);
+//            parameters.setUnitComposition(1, 1, 2, 0, 2, 0, 0, 0, -1, -1, 2, FunctionalGroupsMonitor.OFFENSE_PRIORITY);
+            parameters.setUnitComposition(1, 2, 4, 0, 2, 0, 0, 0, -1, -1, 2, FunctionalGroupsMonitor.OFFENSE_PRIORITY);
             parameters.setHarvest(0.05f, PreSelectionParameters.A_STAR_PF);
             parameters.setDefense(0, 0, (mapWidth / 2) - 2, 1, DefenseManager.DEFEND_BASE, PreSelectionParameters.A_STAR_PF, 0.05f);
             parameters.setOffense(2, 1, OffenseManager.TARGET_CLOSEST, OffenseManager.FIXED_TARGET_ALL_STRUCTURES, PreSelectionParameters.A_STAR_PF, 0.05f);
