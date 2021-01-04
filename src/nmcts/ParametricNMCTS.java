@@ -13,7 +13,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.gson.Gson;
 import preselection.PreSelectionParameters;
 import rts.GameState;
 import rts.PlayerAction;
@@ -32,15 +31,11 @@ import java.util.List;
 public class ParametricNMCTS extends AIWithComputationBudget implements InterruptibleAI {
 
     // Members ************************************************************************************
-    //@JsonIgnore
+
     private GameState initialGameState;
-    //@JsonIgnore
-    private EvaluationFunction evaluationFunction;
-    //@JsonIgnore
+    private EvaluationFunction evaluationFunction = new SimpleSqrtEvaluationFunction3();
     private AI playoutPolicy = new RandomBiasedAI();
-    //@JsonIgnore
     private ParametricNMCTSNode tree;
-    //@JsonIgnore
     private PreSelectionParameters parameters;
 
     private int player;
@@ -369,10 +364,10 @@ public class ParametricNMCTS extends AIWithComputationBudget implements Interrup
         fileWriter.close();
     }
 
-    public ParametricNMCTS(String json) throws Exception {
+    public ParametricNMCTS(UnitTypeTable unitTypeTable, String json) throws Exception {
         super(100, -1);
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode node = mapper.readTree(json);
+        JsonNode node = new ObjectMapper().readTree(json);
         this.epsilon0 = (float) node.get("epsilon0").asDouble();
         this.epsilonGlobal = (float) node.get("epsilonGlobal").asDouble();
         this.epsilonLocal = (float) node.get("epsilonLocal").asDouble();
