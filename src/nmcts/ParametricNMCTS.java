@@ -309,8 +309,8 @@ public class ParametricNMCTS extends AIWithComputationBudget implements Interrup
     @Override
     public String toString() {
         return getClass().getSimpleName() + "(" + TIME_BUDGET + ", " + ITERATIONS_BUDGET + ", " + simulationTime +
-               ", " + maxDepth + ", " + epsilon0 + ", " + epsilonGlobal + ", " + epsilonLocal + ", " + globalStrategy +
-               ", " + playoutPolicy + ", " + evaluationFunction + ", " + exploreNonSampledActions;
+               ", " + maxDepth + ", " + epsilon0 + ", " + epsilonGlobal + ", " + epsilonLocal + ", " + ipaAllowProbability +
+                ", " + globalStrategy + ", " + playoutPolicy + ", " + evaluationFunction + ", " + exploreNonSampledActions;
     }
 
     @Override
@@ -355,6 +355,8 @@ public class ParametricNMCTS extends AIWithComputationBudget implements Interrup
                "\"epsilonLocal\":" + epsilonLocal + ", " +
                "\"epsilonGlobal\":" + epsilonGlobal + ", " +
                "\"ipaAllowProbability\":" + ipaAllowProbability + ", " +
+               "\"simulationTime\":" + simulationTime + ", " +
+               "\"maxDepth\":" + maxDepth + ", " +
                "\"parameters\":" + parameters.toJSONStr() + "}";
     }
 
@@ -372,7 +374,17 @@ public class ParametricNMCTS extends AIWithComputationBudget implements Interrup
         this.epsilonGlobal = (float) node.get("epsilonGlobal").asDouble();
         this.epsilonLocal = (float) node.get("epsilonLocal").asDouble();
         this.ipaAllowProbability = (float) node.get("ipaAllowProbability").asDouble();
+        //this.simulationTime = node.get("simulationTime").asInt();
+        //this.maxDepth = node.get("maxDepth").asInt();
         this.parameters = PreSelectionParameters.fromJSON(node.get("parameters").toString());
+    }
+
+    public void setSimulationTime(int simulationTime) {
+        this.simulationTime = simulationTime;
+    }
+
+    public void setMaxDepth(int maxDepth) {
+        this.maxDepth = maxDepth;
     }
 
     public float getIpaAllowProbability() {
