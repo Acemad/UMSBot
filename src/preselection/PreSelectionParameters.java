@@ -22,9 +22,9 @@ public class PreSelectionParameters {
     // The limits imposed on the number of possible units, of each type.
     // 0 : do not produce, -1 : produce infinitely, n : produce n at most.
     int maxBases = 1;          // The number of Bases to build, at most.
-    int maxBarracks = 2 ;      // The number of Barracks to build, at most.
-    int maxHarvesters = 3;     // The number of harvesting Workers to train, at most.
-    int maxOffenseWorkers = 4; // The number of offense Workers to train, at most.
+    int maxBarracks = 1;       // The number of Barracks to build, at most.
+    int maxHarvesters = 1;     // The number of harvesting Workers to train, at most.
+    int maxOffenseWorkers = -1; // The number of offense Workers to train, at most.
     int maxOffenseLights = 0;  // The number of offense Lights to train, at most.
     int maxOffenseRanged = 0;  // The number of offense Ranged to train, at most.
     int maxOffenseHeavies = 0; // The number of offense Heavies to train, at most.
@@ -187,8 +187,8 @@ public class PreSelectionParameters {
         this.switchingUnitsCount = switchingUnitsCount;
     }
 
-    public void setOffense(int maxTargetsOnOffense, int maxEscapes, int offenseTargetMode, int fixedTarget,
-                           int offensePathFinderIndex, float epsilonOffenseMovement) {
+    public void setOffense(int maxTargetsOnOffense, int maxEscapes, int offenseTargetMode,
+                           int fixedTarget, int offensePathFinderIndex, float epsilonOffenseMovement) {
         this.maxTargetsOnOffense = maxTargetsOnOffense;
         this.maxEscapes = maxEscapes;
         this.offenseTargetMode = offenseTargetMode;

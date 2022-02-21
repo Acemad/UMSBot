@@ -23,7 +23,7 @@ public class ParametricActionGenerator {
     private PreSelectionParameters parameters;
 
     // The list of action choices, for each unit.
-    private List<Pair<Unit, List<UnitAction>>> choices = new ArrayList<>();;
+    private List<Pair<Unit, List<UnitAction>>> choices = new ArrayList<>();
     // Size of the possible choice combination.
     private long size = 1;
 

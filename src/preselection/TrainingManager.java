@@ -117,7 +117,7 @@ public class TrainingManager extends HeuristicsManager {
      * action with the lower occupied cells count in its direction is preserved. The occupied cells are counted by
      * scanning the direction of the action according to a width and depth.
      *
-     * @param unitActions The possible trainint unit actions.
+     * @param unitActions The possible training unit actions.
      * @param maxChoices The maximum number of actions to return.
      * @param scanWidth The width of the scanned zone, from both sides of the training direction.
      * @param scanDepth The depth of the scanned zone, directly across the training direction.

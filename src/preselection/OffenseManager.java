@@ -34,7 +34,7 @@ public class OffenseManager extends HeuristicsManager {
      * Filter unit-actions of an attack unit.
      * If attacking is possible, add all attack actions and a number (maxEscapes) of move actions, this is to restrict
      * excessive move actions, which may interfere with attacking. If attacking is not possible and the unit can move,
-     * then move towards an opponent unit, depending on the chose attack mode.
+     * then move towards an opponent unit, depending on the chosen attack mode.
      *
      * @param maxTargets The maximum number of units to target.
      * @param maxEscapes The maximum number of escapes allowed.

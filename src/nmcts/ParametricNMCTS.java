@@ -292,6 +292,7 @@ public class ParametricNMCTS extends AIWithComputationBudget implements Interrup
         totalCyclesExecuted = 0;
         totalActionsIssued = 0;
         totalTime = 0;
+        treeDepth = 0;
     }
 
     public void resetSearch() {

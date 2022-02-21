@@ -282,7 +282,7 @@ public class ParametricNMCTSNode {
                 } else { // Min node
                     if (bestIndex == -1 ||
                        (lastVisitsCount != 0 && element.visitsCount[i] == 0) ||
-                       (lastVisitsCount != 0 && (element.accumulatedEvaluation[i] / element.visitsCount[i] < bestEvaluation))) {
+                       (lastVisitsCount != 0 && (element.accumulatedEvaluation[i] / element.visitsCount[i]) < bestEvaluation)) {
                        bestIndex = i;
                        if (element.visitsCount[i] > 0)
                            bestEvaluation = (element.accumulatedEvaluation[i] / element.visitsCount[i]);

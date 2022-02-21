@@ -75,7 +75,7 @@ public class EventsManager {
         int opponentScore = unitCompositionScore(stateMonitor.getOpponentID(), assaultUnitValue);
         //return playerScore * (1 - overpowerFactor) > opponentScore;
 //        System.out.println((playerScore / (float) opponentScore));
-        return (playerScore / (float) opponentScore) >= overpowerFactor;
+        return (playerScore / (float) opponentScore) >= overpowerFactor; //TODO: Investigate further. normally >  oF + 1
     }
 
     /**
